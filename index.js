@@ -1,13 +1,23 @@
-var app = require("express")();
-var server = require("http").createServer(app).listen(55437);
-var io = require("socket.io").listen(server);
+import World from "./world";
 
-var world = require("./world.js");
+const app = require("express")();
+const server = require("http").createServer(app).listen(55437);
+const io = require("socket.io")(server);
 
-app.get("/", function(req, res) {
-   res.sendfile("index.html");
+const world = new World();
+
+app.get("/", (req, res) => {
+    res.sendfile("./client/index.html");
 });
 
-io.on("connection", function(socket) {
+app.get("/socket.io.js", (req, res) => {
+   res.sendfile("./node_modules/socket.io-client/dist/socket.io.js");
+});
 
+io.on("connection", (socket) => {
+
+    socket.on("queue", (data) => world.queue(socket, data));
+    socket.on("click-tile", (data) => world.tileClick(socket, data));
+
+    socket.on("disconnect", () => world.removePlayer(socket));
 });

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Test</title>
+	</head>
+<script src="./socket.io.js"></script>
+<script>
+	var socket = io();
+	
+	socket.on("connect", () => {
+	    console.log("connected!");
+	    
+	    socket.on("lobby-time", (data) => {
+	        console.log("Lobby time left");
+	        console.log(((new Date()).getTime() - new Date(data.lobby).getTime()) / 1000);
+	    });
+	    
+	    socket.emit("queue", {});
+	})
+</script>
+<body></body>
+</html>
