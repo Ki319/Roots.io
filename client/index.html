@@ -14,6 +14,10 @@
 	        console.log("Lobby time left");
 	        console.log(((new Date()).getTime() - new Date(data.lobby).getTime()) / 1000);
 	    });
+
+	    socket.on("start-game", (data) => {
+	        console.log("Starting game");
+	    });
 	    
 	    socket.emit("queue", {});
 	})

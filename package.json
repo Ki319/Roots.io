@@ -2,7 +2,7 @@
   "name": "roots.io",
   "version": "1.0.0",
   "description": "CS 252 Lab6 - Purdue Project for Killian A. Le Clainche",
-  "main": "index.js",
+  "main": "./server/index.js",
   "dependencies": {
     "express": "^4.16.2",
     "get-pixels": "^3.3.0",
