@@ -2,6 +2,10 @@ import Player from "./player";
 import Tile from "./tile";
 import Queue from "./queue";
 
+const LOBBY_TIME = 5;
+
+let worldWidth = 0;
+let worldHeight = 0;
 const worldMapValues = [];
 const spawnPoints = [[116, 0], [138, 0], [161, 4], [181, 12], [200, 23], [217, 37], [232, 55], [243, 73], [250, 95],
                      [254, 117], [254, 138], [250, 161], [242, 182], [232, 200], [218, 217], [201, 231], [182, 242],
@@ -26,7 +30,9 @@ Array.prototype.pushIfNotExist = function(element, comparer) {
 
 export default class World {
 
-    constructor() {
+    constructor(database) {
+        this.db = database;
+
         this.broadcast = this.broadcast.bind(this);
         this.updateTile = this.updateTile.bind(this);
         this.queue = this.queue.bind(this);
@@ -47,13 +53,18 @@ export default class World {
                     return;
                 }
 
+                worldWidth = 256;
+                worldHeight = 256;
+
                 for(let i = 0; i < 256; i++) {
                     for(let j = 0; j < 256; j++) {
                         const value = pixels.get(i, j, 0);
                         if(pixels.get(i, j, 3) === 0)
                             worldMapValues.push(-1);
+                        else if(value >= 163)
+                            worldMapValues.push(15 - (value - 256));
                         else
-                            worldMapValues.push(value);
+                            worldMapValues.push(Math.round(Math.pow((value - 256) / 30, 4)) + 15);
                     }
                 }
 
@@ -117,21 +128,22 @@ export default class World {
             this.players[socket.id] = new Player(socket);
 
             this.lobby = new Date();
+            this.lobby.setSeconds(this.lobby.getSeconds() + LOBBY_TIME);
             this.gameActive = true;
 
             setTimeout(() => {
-               this.lobby = undefined;
-               this.start();
-            }, 1 * 1000);
+               //this.lobby = undefined;
+               //this.start();
+            }, LOBBY_TIME * 1000);
 
-            socket.emit("lobby-time", { lobby : this.lobby });
+            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, width: worldWidth, height : worldHeight });
         }
         else if(this.lobby) {
             console.log("Another player joined!");
 
             this.players[socket.id] = new Player(socket);
 
-            socket.emit("lobby-time", { lobby : this.lobby });
+            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, width: worldWidth, height : worldHeight });
         }
     }
 
@@ -146,7 +158,7 @@ export default class World {
             tile.owner = player.socket.id;
             tile.value = 20;
 
-            return { world : worldMapValues, spawn : spawnPoints[count] };
+            return { spawn : spawnPoints[count] };
         });
 
         setInterval(this.gameLoop, 500);
