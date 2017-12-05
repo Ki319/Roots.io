@@ -20,7 +20,8 @@ app.get("/socket.io.js", (req, res) => {
 io.on("connection", (socket) => {
 
     socket.on("queue", (data) => world.queue(socket, data));
-    socket.on("click-tile", (data) => world.tileClick(socket, data));
+    socket.on("move-to-tile", (data) => world.moveToTile(socket, data));
+    socket.on("set-rally", (data) => world.setRally(socket, data));
 
     socket.on("disconnect", () => world.removePlayer(socket));
 });

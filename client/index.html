@@ -5,6 +5,7 @@
 	</head>
 <script src="./socket.io.js"></script>
 <script>
+	var worldMapValues = [];
 	var socket = io();
 	
 	socket.on("connect", () => {
@@ -17,6 +18,12 @@
 
 	    socket.on("start-game", (data) => {
 	        console.log("Starting game");
+	        worldMapValues = data.world;
+	        console.log(worldMapValues.length);
+	    });
+	    
+	    socket.on("update-tiles", (data) => {
+	        console.log(data);
 	    });
 	    
 	    socket.emit("queue", {});

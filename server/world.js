@@ -1,4 +1,6 @@
 import Player from "./player";
+import Tile from "./tile";
+import Queue from "./queue";
 
 const worldMapValues = [];
 const spawnPoints = [[116, 0], [138, 0], [161, 4], [181, 12], [200, 23], [217, 37], [232, 55], [243, 73], [250, 95],
@@ -7,35 +9,60 @@ const spawnPoints = [[116, 0], [138, 0], [161, 4], [181, 12], [200, 23], [217, 3
                      [12, 181], [5, 162], [0, 139], [0, 115], [5, 93], [12, 74], [23, 54], [38, 36], [53, 24],
                      [73, 12], [94, 4]];
 
-require("get-pixels")("server/map.png", function(err, pixels) {
-    if(err) {
-        console.log("Bad image path");
-        return;
+Array.prototype.inArray = function(comparer) {
+    for(var i=0; i < this.length; i++) {
+        if(comparer(this[i])) return true;
     }
+    return false;
+};
 
-    for(let i = 0; i < 256; i++) {
-        for(let j = 0; j < 256; j++) {
-            const value = pixels.get(i, j, 0);
-            if(pixels.get(i, j, 3) === 0)
-                worldMapValues.push(-1);
-            else
-                worldMapValues.push(value);
-        }
+// adds an element to the array if it does not already exist using a comparer
+// function
+Array.prototype.pushIfNotExist = function(element, comparer) {
+    if (!this.inArray(comparer)) {
+        this.push(element);
     }
-});
+};
 
 export default class World {
 
     constructor() {
         this.broadcast = this.broadcast.bind(this);
+        this.updateTile = this.updateTile.bind(this);
         this.queue = this.queue.bind(this);
         this.start = this.start.bind(this);
-        this.tileClick = this.tileClick(this);
+        this.gameLoop = this.gameLoop.bind(this);
+        this.moveToTile = this.moveToTile.bind(this);
+        this.setRally = this.setRally.bind(this);
 
         this.removePlayer = this.removePlayer.bind(this);
         this.clear = this.clear.bind(this);
 
-        this.clear();
+        console.log(worldMapValues);
+
+        if(worldMapValues.length === 0) {
+            require("get-pixels")("server/map.png", (err, pixels) => {
+                if(err) {
+                    console.log("Bad image path");
+                    return;
+                }
+
+                for(let i = 0; i < 256; i++) {
+                    for(let j = 0; j < 256; j++) {
+                        const value = pixels.get(i, j, 0);
+                        if(pixels.get(i, j, 3) === 0)
+                            worldMapValues.push(-1);
+                        else
+                            worldMapValues.push(value);
+                    }
+                }
+
+                this.clear();
+            });
+        }
+        else {
+            this.clear();
+        }
     }
 
     broadcast(msg, data) {
@@ -50,6 +77,39 @@ export default class World {
         }
     }
 
+    updateTile(x, y, func) {
+        func(this.tiles[x][y]);
+
+        const viewers = [this.tiles[x][y].owner];
+
+        let owner = this.tiles[x][y - 1] ? this.tiles[x - 1][y].owner: undefined;
+
+        if(owner)
+            viewers.pushIfNotExist(owner, (viewer) => viewer === owner);
+
+        owner = this.tiles[x][y - 1] ? this.tiles[x + 1][y].owner: undefined;
+
+        if(owner)
+            viewers.pushIfNotExist(owner, (viewer) => viewer === owner);
+
+        owner = this.tiles[x][y - 1] ? this.tiles[x][y - 1].owner : undefined;
+
+        if(owner)
+            viewers.pushIfNotExist(owner, (viewer) => viewer === owner);
+
+        owner = this.tiles[x][y - 1] ? this.tiles[x][y + 1].owner: undefined;
+
+        if(owner)
+            viewers.pushIfNotExist(owner, (viewer) => viewer === owner);
+
+        viewers.forEach((viewer) => {
+            if(!this.updates[viewer])
+                this.updates[viewer] = {};
+
+            this.updates[viewer][x + y * 256] = { value : this.tiles[x][y].value };
+        });
+    }
+
     queue(socket, data) {
         if(!this.gameActive) {
             console.log("First player joined!");
@@ -62,7 +122,7 @@ export default class World {
             setTimeout(() => {
                this.lobby = undefined;
                this.start();
-            }, 10 * 1000);
+            }, 1 * 1000);
 
             socket.emit("lobby-time", { lobby : this.lobby });
         }
@@ -79,14 +139,67 @@ export default class World {
         console.log("Starting game");
         let count = 0;
         this.broadcast("start-game", (player) => {
-            console.log("Spawning player(" + player.socket.id + ") at : " + spawnPoints[count][0] + ", " + spawnPoints[count][1]);
             count++;
-            return { spawn : spawnPoints[count] };
+
+            const tile = this.tiles[spawnPoints[count][0]][spawnPoints[count][1]];
+
+            tile.owner = player.socket.id;
+            tile.value = 20;
+
+            return { world : worldMapValues, spawn : spawnPoints[count] };
         });
+
+        setInterval(this.gameLoop, 500);
     }
 
-    tileClick(socket, data) {
+    gameLoop() {
+        this.rallies.forEach((rally) => {
+            if(!rally.start) {
+                rally.start = this.loop;
+                rally.distance = Math.abs(rally.pos.x - rally.toPos.x) + Math.abs(rally.pos.y - rally.toPos.y);
+            }
+            else if ((this.loop - rally.start) % rally.distance === 0) {
+                this.updateTile(rally.toPos.x, rally.toPos.y, (tile) => tile.value++)
+            }
+        });
 
+        this.moveQueues.forEach((queue, index) => {
+            const prevX = queue.move.pos.x;
+            const prevY = queue.move.pos.y;
+            const nextMove = queue.nextTile();
+
+            if(nextMove.pop)
+                this.moveQueues.splice(index, 1);
+
+            this.updateTile(nextMove.x, nextMove.y, (tile) => tile.value += queue.move.value);
+            this.updateTile(prevX, prevY, (tile) => tile.value -= queue.move.value);
+        })
+
+        for(let i = 0; i < 256; i++) {
+            for(let j = 0; j < 256; j++) {
+                if(this.tiles[i][j] && this.tiles[i][j].owner)
+                    this.updateTile(i, j, (tile) => tile.value++)
+            }
+        }
+
+        for(let property in this.updates) {
+            if(this.updates.hasOwnProperty(property)) {
+                console.log(this.updates);
+                this.players[property].socket.emit("update-tiles", this.updates[property]);
+            }
+        }
+
+        this.updates = {};
+        this.loop++;
+    }
+
+    moveToTile(socket, data) {
+        this.moveQueues.push(new Queue({ pos : { x : data.x, y : data.y }, toPos : { x : data.toX, y : data.toY }, value : this.tiles[data.x][data.y].value }));
+    }
+
+    setRally(socket, data) {
+        if(this.tiles[data.toX][data.toY].owner === socket.id)
+            this.rallies.push({ pos : { x : data.x, y : data.y }, toPos : { x : data.toX, y : data.toY } });
     }
 
     removePlayer(socket) {
@@ -94,9 +207,26 @@ export default class World {
     }
 
     clear() {
-        this.playerMapValues = worldMapValues.slice();
+        this.tiles = [];
+        for(let i = 0; i < 256; i++) {
+            const column = {};
+            for(let j = 0; j < 256; j++) {
+                if(worldMapValues[i + j * 256] >= 0) {
+                    column[j + ""] = new Tile(worldMapValues[i + j * 256]);
+                }
+            }
+            this.tiles.push(column);
+        }
+
         this.players = {};
         this.gameActive = false;
         this.lobby = undefined;
+
+        this.loop = 0;
+
+        this.updates = {};
+        this.rallies = [];
+        this.moveQueues = [];
+
     }
 };
