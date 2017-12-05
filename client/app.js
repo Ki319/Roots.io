@@ -41,11 +41,10 @@ socket.on("connect", function() {
     socket.on("lobby-time", function(data) {
         console.log("Lobby time left");
         countdown = new Date(data.lobby).getTime();
+        currentClick = [];
         worldMapValues = data.world;
         worldFoodValues = data.foodMap;
         worldSize = new Size(data.width, data.height);
-
-        console.log(data);
 
         updateTileGroup();
     });
@@ -148,12 +147,29 @@ function updateTileGroup() {
                 x += Math.floor(currentPos.x / 88);
                 y += Math.floor(currentPos.y / 76);
 
-                if(currentClick.length === 0 && worldOwnerValues[x + y * worldSize.width])
-                    currentClick = [x, y];
-                else {
-                    console.log("MOVE TO TILE ", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
-                    socket.emit("move-to-tile", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                if(!currentClick || currentClick.length === 0 || currentClick[2] !== event.event.button) {
+                    if(worldMapValues[x + y * worldSize.width] !== -1 && worldOwnerValues[x + y * worldSize.width]) {
+                        currentClick = [x, y, event.event.button];
+                        populateTiles();
+                    }
+                    else
+                        currentClick = [];
+                }
+                else if(worldMapValues[x + y * worldSize.width] !== -1) {
+
+                    if(currentClick[0] !== x || currentClick[1] !== y) {
+                        if(currentClick[2] === 0) {
+                            console.log("MOVE TO TILE ", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                            socket.emit("move-to-tile", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                        }
+                        else if(currentClick[2] === 2) {
+                            console.log("SET RALLY ", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                            socket.emit("set-rally", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                        }
+                    }
+
                     currentClick = [];
+                    populateTiles();
                 }
             });
         }
@@ -174,7 +190,11 @@ function populateTiles() {
                 //Dark Brown 43, 29, 14
                 //Dark Green 61, 186, 59
                 var foodValue = worldFoodValues[(startX + i) + (startY + j) * worldSize.width];
-                tileGroup.children[totalX].children[0].strokeColor = "black";
+                if(currentClick === undefined || currentClick.length === 0 || currentClick[0] !== startX + i || currentClick[1] !== startY + j)
+                    tileGroup.children[totalX].children[0].strokeColor = "black";
+                else {
+                    tileGroup.children[totalX].children[0].strokeColor = "rgb(0,203,255)";
+                }
                 if(worldOwnerValues[(startX + i) + (startY + j) * worldSize.width] !== undefined) {
                     if(worldOwnerValues[(startX + i) + (startY + j) * worldSize.width])
                         tileGroup.children[totalX].children[0].fillColor = "blue";
@@ -221,7 +241,7 @@ function onFrame(event) {
         var time = (((countdown) - new Date().getTime()) / 1000);
         if(time > 0) {
             lobbyText.opacity = 1;
-            lobbyText.content = countdownText + time + "s";
+            lobbyText.content = countdownText + Math.ceil(time) + "s";
         }
         else {
             countdown = undefined;

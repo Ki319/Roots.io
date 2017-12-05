@@ -1,3 +1,5 @@
+import {worldHeight, worldWidth} from "./world";
+
 export default class Queue {
     constructor(move) {
         this.world = move.world;
@@ -7,27 +9,56 @@ export default class Queue {
     }
 
     nextTile() {
-        let move = this.pos;
-        const moveValues = [{ x : move.x - 1, y : move.y - 1 }, { x : move.x - 1, y : move.y }, { x : move.x - 1, y : move.y + 1 },
-                            { x : move.x, y : move.y - 1 }, { x : move.x, y : move.y + 1 }, { x : move.x + 1, y : move.y }];
+        const currentTile = this.world.tiles[this.pos.x][this.pos.y];
+        let flag = false;
 
-        for(var i = 0; i < moveValues.length; i++)
+        if(currentTile.value < this.value)
+            this.value = currentTile.value;
+
+        if(!this.value)
+            return true;
+
+        const moveValues = [{ x : this.pos.x + 1, y : this.pos.y - 1 }, { x : this.pos.x - 1, y : this.pos.y }, { x : this.pos.x + 1, y : this.pos.y + 1 },
+                            { x : this.pos.x, y : this.pos.y - 1 }, { x : this.pos.x, y : this.pos.y + 1 }, { x : this.pos.x + 1, y : this.pos.y }];
+
+        let shortestMoveValue = undefined;
+
+        for(let i = 0; i < moveValues.length; i++)
         {
+            let value;
             if(this.world.tiles[moveValues[i].x][moveValues[i].y]) {
+                value = Math.abs(moveValues[i].x - this.toPos.x) + Math.abs(moveValues[i].y - this.toPos.y);
+            }
+            else {
+                value = worldWidth * worldHeight + 10;
+            }
 
+            if(!shortestMoveValue || shortestMoveValue.value > value) {
+                shortestMoveValue = moveValues[i];
+                shortestMoveValue.value = value;
             }
         }
 
-        this.updateTile(nextMove.x, nextMove.y, (tile) => tile.value += queue.move.value);
-        this.updateTile(prevX, prevY, (tile) => tile.value -= queue.move.value);
+        this.world.updateTile(shortestMoveValue.x, shortestMoveValue.y, (tile) => {
+            if(tile.owner === currentTile.owner)
+                tile.value += this.value;
+            else {
+                tile.value -= this.value;
+                if(tile.value < 0) {
+                    this.world.changeOwner(currentTile, currentTile.owner);
+                    tile.setOwner(currentTile.owner);
+                    tile.value = -tile.value;
+                }
+                else
+                    flag = true;
+            }
+        });
+        this.world.updateTile(this.pos.x, this.pos.y, (tile) => tile.value -= this.value);
 
-        const disX = this.move.pos.x - this.move.toPos.x;
-        const disY = this.move.pos.y - this.move.toPos.y;
-        if(Math.abs(disX) >= Math.abs(disY))
-            this.move.pos.x += disX / Math.abs(disX);
-        else
-            this.move.pos.y += disY / Math.abs(disY);
+        this.pos.x = shortestMoveValue.x;
+        this.pos.y = shortestMoveValue.y;
 
-        return { x : this.move.pos.x, y : this.move.pos.y, pop : (this.move.pos.x === this.move.toPos.x && this.move.pos.y === this.move.toPos.y) };
+
+        return flag || (this.pos.x === this.toPos.x && this.pos.y === this.toPos.y);
     }
 }
