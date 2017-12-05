@@ -202,15 +202,9 @@ export default class World {
         });
 
         this.moveQueues.forEach((queue, index) => {
-            const prevX = queue.move.pos.x;
-            const prevY = queue.move.pos.y;
-            const nextMove = queue.nextTile();
-
-            if(nextMove.pop)
+            if(queue.nextTile()) {
                 this.moveQueues.splice(index, 1);
-
-            this.updateTile(nextMove.x, nextMove.y, (tile) => tile.value += queue.move.value);
-            this.updateTile(prevX, prevY, (tile) => tile.value -= queue.move.value);
+            }
         })
 
         for(let i = 0; i < 256; i++) {
@@ -231,10 +225,13 @@ export default class World {
     }
 
     moveToTile(socket, data) {
-        this.moveQueues.push(new Queue({ pos : { x : data.x, y : data.y }, toPos : { x : data.toX, y : data.toY }, value : this.tiles[data.x][data.y].value }));
+        console.log(data);
+        console.log(this.tiles[data.x][0]);
+        this.moveQueues.push(new Queue({ world : this, pos : { x : data.x, y : data.y }, toPos : { x : data.toX, y : data.toY }, value : this.tiles[data.x][data.y].value }));
     }
 
     setRally(socket, data) {
+        console.log(data);
         if(this.tiles[data.toX][data.toY].owner === socket.id)
             this.rallies.push({ pos : { x : data.x, y : data.y }, toPos : { x : data.toX, y : data.toY } });
     }

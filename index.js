@@ -28,7 +28,7 @@ app.get("/socket.io.js", (req, res) => {
 
 app.get("/paper.js", (req, res) => {
     res.sendfile("./node_modules/paper/dist/paper-full.js");
-})
+});
 
 io.on("connection", (socket) => {
 

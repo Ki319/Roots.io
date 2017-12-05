@@ -8,6 +8,7 @@ var viewTileWidth1;
 var viewTileWidth2;
 var viewTileHeight;
 var socket = io();
+var currentClick = [];
 
 var currentPos = new Point(0, 0);
 
@@ -117,6 +118,46 @@ function updateTileGroup() {
             curY += 76;
             viewTileHeight++;
         }
+
+        for(var i = 0; i < tileGroup.children.length; i++) {
+            tileGroup.children[i].children[0].on("click", function(event) {
+                var x = 0;
+                var y = 0;
+
+                var totalX = 0;
+
+                for(y = 0; y < viewTileHeight; y++) {
+                    if(tileGroup.children[totalX].children[0] === event.target) {
+                        x = 0;
+                        break;
+                    }
+
+                    var flag = false;
+
+                    for(x = 0; ((y % 2 === 0 && x < viewTileWidth1) || (y % 2 === 1 && x < viewTileWidth2)); x++, totalX++) {
+                        if(tileGroup.children[totalX].children[0] === event.target) {
+                            flag = true;
+                            break;
+                        }
+                    }
+
+                    if(flag)
+                        break;
+                }
+
+                x += Math.floor(currentPos.x / 88);
+                y += Math.floor(currentPos.y / 76);
+
+                if(currentClick.length === 0 && worldOwnerValues[x + y * worldSize.width])
+                    currentClick = [x, y];
+                else {
+                    console.log("MOVE TO TILE ", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                    socket.emit("move-to-tile", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                    currentClick = [];
+                }
+            });
+        }
+
         populateTiles();
     }
 }
@@ -142,6 +183,7 @@ function populateTiles() {
                 }
                 else
                     tileGroup.children[totalX].children[0].fillColor = "rgb(" + Math.round(61 - (61 - 43) / 256 * foodValue) + ", " + Math.round(186 - (186 - 29) / 256 * foodValue) + ", " + Math.round(59 - (59 - 14) / 256 * foodValue) + ")";
+
                 tileGroup.children[totalX].children[1].content = worldMapValues[(startX + i) + (startY + j) * worldSize.width];
             }
             else {
