@@ -1,6 +1,8 @@
 var countdown;
 var countdownText = "Time Until Game : ";
 var worldMapValues = [];
+var worldFoodValues = [];
+var worldOwnerValues = {};
 var worldSize;
 var viewTileWidth1;
 var viewTileWidth2;
@@ -23,6 +25,8 @@ lobbyText.opacity = 0;
 
 tileGroup = new Group([]);
 
+tileGroup.sendToBack();
+
 /*
 for(let i = 0; i < 6; i++) {
   //  hexagon.add(new Point(60 * Math.cos(((2 * Math.PI) / 6) * i)), 60 * Math.sin(((2 * Math.PI) / 6) * i));
@@ -37,18 +41,41 @@ socket.on("connect", function() {
         console.log("Lobby time left");
         countdown = new Date(data.lobby).getTime();
         worldMapValues = data.world;
+        worldFoodValues = data.foodMap;
         worldSize = new Size(data.width, data.height);
+
+        console.log(data);
 
         updateTileGroup();
     });
 
     socket.on("start-game", function(data) {
         console.log("Starting game");
-        console.log(worldMapValues.length);
-    });
+
+        var tileY = data.spawn[1] - viewTileHeight / 2;
+
+        tileY = Math.max(tileY, 0);
+        tileY = Math.min(tileY, worldSize.height - viewTileHeight);
+
+        currentPos.y = tileY * 76;
+
+        currentPos.x = (data.spawn[0] - (tileY % 2 === 0 ? viewTileWidth1 : viewTileWidth2) / 2) * 88;
+
+        currentPos.x = Math.max(currentPos.x, 0);
+        currentPos.x = Math.min(currentPos.x, worldSize.width * 88 - view.size.width);
+
+        populateTiles();
+
+    }.bind(this));
 
     socket.on("update-tiles", function(data) {
-        console.log(data);
+        for(var property in data) {
+            if(data.hasOwnProperty(property)) {
+                worldMapValues[property] = data[property].value;
+                worldOwnerValues[property] = data[property].owner;
+            }
+        }
+        populateTiles();
     });
 
     socket.emit("queue", {});
@@ -67,14 +94,15 @@ function updateTileGroup() {
         viewTileWidth2 = 0;
         viewTileHeight = 0;
 
-        for(var i = 0; i < worldSize.width && curY + 60 <= view.size.height; i++) {
+        for(var i = 0; i < worldSize.width && curY + 40 <= view.size.height; i++) {
             curX = i % 2 === 1 ? 104 : 60;
-            for(var j = 0; j < worldSize.height && curX + 60 <= view.size.width; j++) {
+            for(var j = 0; j < worldSize.height && curX + 40 <= view.size.width; j++) {
 
                 var tile = tileGroup.addChild(new Group([new Path.RegularPolygon(new Point(curX, curY), 6, 50), new PointText(new Point(curX, curY - 22))]));
 
                 tile.children[0].strokeWidth = 2;
                 tile.children[1].fillColor = "black";
+                tile.children[1].fontWeight = "bold";
                 tile.children[1].fontSize = 16;
                 tile.children[1].fontFamily = "Arial";
                 tile.children[1].justification = "center";
@@ -86,7 +114,7 @@ function updateTileGroup() {
                     viewTileWidth2++;
             }
             flag++;
-            curY += 77;
+            curY += 76;
             viewTileHeight++;
         }
         populateTiles();
@@ -94,19 +122,31 @@ function updateTileGroup() {
 }
 
 function populateTiles() {
-    var startX = Math.floor(currentPos.x / 86);
-    var startY = Math.floor(currentPos.y / 75);
+    var startX = Math.floor(currentPos.x / 88);
+    var startY = Math.floor(currentPos.y / 76);
 
     var totalX = 0;
 
     for(var j = 0; j < viewTileHeight; j++) {
         for(var i = 0; (j % 2 === 0 && i < viewTileWidth1) || (j % 2 === 1 && i < viewTileWidth2); i++) {
             if(worldMapValues[(startX + i) + (startY + j) * worldSize.width] >= 0) {
+                //Dark Brown 43, 29, 14
+                //Dark Green 61, 186, 59
+                var foodValue = worldFoodValues[(startX + i) + (startY + j) * worldSize.width];
                 tileGroup.children[totalX].children[0].strokeColor = "black";
+                if(worldOwnerValues[(startX + i) + (startY + j) * worldSize.width] !== undefined) {
+                    if(worldOwnerValues[(startX + i) + (startY + j) * worldSize.width])
+                        tileGroup.children[totalX].children[0].fillColor = "blue";
+                    else
+                        tileGroup.children[totalX].children[0].fillColor = "red";
+                }
+                else
+                    tileGroup.children[totalX].children[0].fillColor = "rgb(" + Math.round(61 - (61 - 43) / 256 * foodValue) + ", " + Math.round(186 - (186 - 29) / 256 * foodValue) + ", " + Math.round(59 - (59 - 14) / 256 * foodValue) + ")";
                 tileGroup.children[totalX].children[1].content = worldMapValues[(startX + i) + (startY + j) * worldSize.width];
             }
             else {
                 tileGroup.children[totalX].children[0].strokeColor = "white";
+                tileGroup.children[totalX].children[0].fillColor = "white";
                 tileGroup.children[totalX].children[1].content = "";
             }
             totalX++;
@@ -123,12 +163,12 @@ function onMouseDrag(event) {
     currentPos -= event.delta * 5;
 
     currentPos.x = Math.max(currentPos.x, 0);
-    currentPos.x = Math.min(currentPos.x, worldSize.width * 86);
+    currentPos.x = Math.min(currentPos.x, worldSize.width * 88 - view.size.width);
 
-    currentPos.x = Math.max(currentPos.y, 0);
-    currentPos.x = Math.min(currentPos.y, worldSize.height * 75);
+    currentPos.y = Math.max(currentPos.y, 0);
+    currentPos.y = Math.min(currentPos.y, worldSize.height * 76 - view.size.height);
 
-    if(Math.floor(lastPos.x / 86) !== Math.floor(currentPos.x / 86) || Math.floor(lastPos.y / 75) !== Math.floor(currentPos.y / 75))
+    if(Math.floor(lastPos.x / 88) !== Math.floor(currentPos.x / 88) || Math.floor(lastPos.y / 76) !== Math.floor(currentPos.y / 76))
         populateTiles();
 }
 

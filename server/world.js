@@ -7,11 +7,12 @@ const LOBBY_TIME = 5;
 let worldWidth = 0;
 let worldHeight = 0;
 const worldMapValues = [];
+const worldFoodValues = [];
 const spawnPoints = [[116, 0], [138, 0], [161, 4], [181, 12], [200, 23], [217, 37], [232, 55], [243, 73], [250, 95],
-                     [254, 117], [254, 138], [250, 161], [242, 182], [232, 200], [218, 217], [201, 231], [182, 242],
-                     [160, 250], [138, 254], [117, 254], [94, 250], [74, 243], [54, 231], [37, 217], [23, 200],
-                     [12, 181], [5, 162], [0, 139], [0, 115], [5, 93], [12, 74], [23, 54], [38, 36], [53, 24],
-                     [73, 12], [94, 4]];
+    [254, 117], [254, 138], [250, 161], [242, 182], [232, 200], [218, 217], [201, 231], [182, 242],
+    [160, 250], [138, 254], [117, 254], [94, 250], [74, 243], [54, 231], [37, 217], [23, 200],
+    [12, 181], [5, 162], [0, 139], [0, 115], [5, 93], [12, 74], [23, 54], [38, 36], [53, 24],
+    [73, 12], [94, 4]];
 
 Array.prototype.inArray = function(comparer) {
     for(var i=0; i < this.length; i++) {
@@ -47,9 +48,10 @@ export default class World {
         console.log(worldMapValues);
 
         if(worldMapValues.length === 0) {
-            require("get-pixels")("server/map.png", (err, pixels) => {
+            const getpixels = require("get-pixels");
+            getpixels("server/map.png", (err, pixels) => {
                 if(err) {
-                    console.log("Bad image path");
+                    console.log("Bad image path", err);
                     return;
                 }
 
@@ -68,7 +70,24 @@ export default class World {
                     }
                 }
 
-                this.clear();
+                getpixels("server/mapfood.png", (err, pixels) => {
+
+                    if(err) {
+                        console.log("Bad image path", err);
+                        return;
+                    }
+
+                    for(let i = 0; i < 256; i++) {
+                        for(let j = 0; j < 256; j++) {
+                            if(pixels.get(i, j, 3) === 0)
+                                worldFoodValues.push(-1);
+                            else
+                                worldFoodValues.push((256 - pixels.get(i, j, 0)));
+                        }
+                    }
+
+                    this.clear();
+                });
             });
         }
         else {
@@ -117,7 +136,7 @@ export default class World {
             if(!this.updates[viewer])
                 this.updates[viewer] = {};
 
-            this.updates[viewer][x + y * 256] = { value : this.tiles[x][y].value };
+            this.updates[viewer][x + y * worldWidth] = { value : this.tiles[x][y].value, owner : this.tiles[x][y].owner === viewer };
         });
     }
 
@@ -132,18 +151,18 @@ export default class World {
             this.gameActive = true;
 
             setTimeout(() => {
-               //this.lobby = undefined;
-               //this.start();
+                this.lobby = undefined;
+                this.start();
             }, LOBBY_TIME * 1000);
 
-            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, width: worldWidth, height : worldHeight });
+            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, foodMap : worldFoodValues, width: worldWidth, height : worldHeight });
         }
         else if(this.lobby) {
             console.log("Another player joined!");
 
             this.players[socket.id] = new Player(socket);
 
-            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, width: worldWidth, height : worldHeight });
+            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, foodMap : worldFoodValues, width: worldWidth, height : worldHeight });
         }
     }
 
@@ -151,14 +170,21 @@ export default class World {
         console.log("Starting game");
         let count = 0;
         this.broadcast("start-game", (player) => {
-            count++;
-
             const tile = this.tiles[spawnPoints[count][0]][spawnPoints[count][1]];
 
             tile.owner = player.socket.id;
             tile.value = 20;
 
-            return { spawn : spawnPoints[count] };
+            return { spawn : spawnPoints[count++] };
+        });
+
+        this.broadcast("update-tiles", (player) => {
+            let tiles = {};
+            for(let i = 0; i < count; i++) {
+                const tile = this.tiles[spawnPoints[i][0]][spawnPoints[i][1]];
+                tiles[spawnPoints[i][0] + spawnPoints[i][1] * worldWidth] = { value : tile.value, owner : tile.owner === player.socket.id };
+            }
+            return tiles;
         });
 
         setInterval(this.gameLoop, 500);
@@ -171,7 +197,7 @@ export default class World {
                 rally.distance = Math.abs(rally.pos.x - rally.toPos.x) + Math.abs(rally.pos.y - rally.toPos.y);
             }
             else if ((this.loop - rally.start) % rally.distance === 0) {
-                this.updateTile(rally.toPos.x, rally.toPos.y, (tile) => tile.value++)
+                this.updateTile(rally.toPos.x, rally.toPos.y, (tile) => tile.calcFood())
             }
         });
 
@@ -190,13 +216,12 @@ export default class World {
         for(let i = 0; i < 256; i++) {
             for(let j = 0; j < 256; j++) {
                 if(this.tiles[i][j] && this.tiles[i][j].owner)
-                    this.updateTile(i, j, (tile) => tile.value++)
+                    this.updateTile(i, j, (tile) => tile.calcFood())
             }
         }
 
         for(let property in this.updates) {
             if(this.updates.hasOwnProperty(property)) {
-                console.log(this.updates);
                 this.players[property].socket.emit("update-tiles", this.updates[property]);
             }
         }
@@ -224,7 +249,7 @@ export default class World {
             const column = {};
             for(let j = 0; j < 256; j++) {
                 if(worldMapValues[i + j * 256] >= 0) {
-                    column[j + ""] = new Tile(worldMapValues[i + j * 256]);
+                    column[j + ""] = new Tile(worldMapValues[i + j * worldWidth], worldFoodValues[i + j * worldWidth]);
                 }
             }
             this.tiles.push(column);
