@@ -45,7 +45,7 @@ export default class Queue {
             else {
                 tile.value -= this.value;
                 if(tile.value < 0) {
-                    this.world.changeOwner(currentTile, currentTile.owner);
+                    this.world.changeOwner(tile, currentTile.owner);
                     tile.value = -tile.value;
                 }
                 else
