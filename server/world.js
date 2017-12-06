@@ -2,7 +2,7 @@ import Player from "./player";
 import Tile from "./tile";
 import Queue from "./queue";
 
-const LOBBY_TIME = 60;
+const LOBBY_TIME = 30;
 
 export let worldWidth = 0;
 export let worldHeight = 0;
@@ -159,7 +159,7 @@ export default class World {
             this.lobby.setSeconds(this.lobby.getSeconds() + LOBBY_TIME);
             this.gameActive = true;
 
-            setTimeout(() => {
+            this.timeout = setTimeout(() => {
                 this.lobby = undefined;
                 this.start();
             }, LOBBY_TIME * 1000);
@@ -205,7 +205,7 @@ export default class World {
             return tiles;
         });
 
-        setInterval(this.gameLoop, 500);
+        this.interval = setInterval(this.gameLoop, 500);
     }
 
     gameLoop() {
@@ -263,7 +263,9 @@ export default class World {
     }
 
     removePlayer(socket) {
-
+        delete this.players[socket.id];
+        this.broadcast("game-lose", {});
+        this.clear();
     }
 
     clear() {
@@ -285,6 +287,16 @@ export default class World {
         }
 
         this.broadcast("clear", {});
+
+        if(this.timeout) {
+            clearTimeout(this.timeout);
+            this.timeout = undefined;
+        }
+
+        if(this.interval) {
+            clearInterval(this.interval);
+            this.interval = undefined;
+        }
 
         this.players = {};
         this.gameActive = false;
