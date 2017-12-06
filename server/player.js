@@ -13,9 +13,7 @@ export default class Player {
     }
 
     remove(tile) {
-        this.ownedTiles.filter((ownedTile) => { return ownedTile !== tile });
-
-        console.log(this.ownedTiles.length);
+        this.ownedTiles = this.ownedTiles.filter((ownedTile) => { return ownedTile !== tile });
 
         return this.ownedTiles.length === 0;
     }

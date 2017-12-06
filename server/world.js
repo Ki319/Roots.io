@@ -250,9 +250,11 @@ export default class World {
         if(tile.owner && this.players[tile.owner].remove(tile)) {
             console.log("Sending lose condition");
             this.players[tile.owner].socket.emit("game-lose", {});
+
             delete this.players[tile.owner];
 
             if(Object.keys(this.players).length === 1) {
+                this.players[tile.owner].socket.emit("game-lose", {});
                 this.clear();
             }
         }
