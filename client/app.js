@@ -15,7 +15,7 @@ var currentPos = new Point(0, 0);
 view.viewSize = new Size(Math.max(document.documentElement.clientWidth, window.innerWidth || 0), Math.max(document.documentElement.clientHeight, window.innerHeight || 0));
 
 lobbyText = new PointText(new Point(view.size.width / 2, view.size.height / 2));
-lobbyText.fillColor = "lightgray";
+lobbyText.fillColor = "gray";
 lobbyText.fontSize = "3em";
 lobbyText.fontFamily = "Impact";
 //lobbyText.fontWeight = "bold";
@@ -40,8 +40,10 @@ socket.on("connect", function() {
 
     socket.on("lobby-time", function(data) {
         console.log("Lobby time left");
+        tileGroup.sendToBack();
         countdown = new Date(data.lobby).getTime();
         currentClick = [];
+        worldOwnerValues = {};
         worldMapValues = data.world;
         worldFoodValues = data.foodMap;
         worldSize = new Size(data.width, data.height);
@@ -84,7 +86,7 @@ socket.on("connect", function() {
 function updateTileGroup() {
     if(worldSize) {
         var curX = 60;
-        var curY = 60;
+        var curY = 60 - 76;
 
         tileGroup.removeChildren();
 
@@ -118,62 +120,71 @@ function updateTileGroup() {
             viewTileHeight++;
         }
 
-        for(var i = 0; i < tileGroup.children.length; i++) {
-            tileGroup.children[i].children[0].on("click", function(event) {
-                var x = 0;
-                var y = 0;
+        viewTileHeight -= 1;
 
-                var totalX = 0;
+        var i;
 
-                for(y = 0; y < viewTileHeight; y++) {
-                    if(tileGroup.children[totalX].children[0] === event.target) {
-                        x = 0;
-                        break;
-                    }
+        for(i = 0; i < tileGroup.children.length; i++) {
+            tileGroup.children[i].on("click", tileClick);
+        }
+        console.log(i, tileGroup.children.length);
 
-                    var flag = false;
+        populateTiles();
+    }
+}
 
-                    for(x = 0; ((y % 2 === 0 && x < viewTileWidth1) || (y % 2 === 1 && x < viewTileWidth2)); x++, totalX++) {
-                        if(tileGroup.children[totalX].children[0] === event.target) {
-                            flag = true;
-                            break;
-                        }
-                    }
+function tileClick(event) {
+    var x = 0;
+    var y;
 
-                    if(flag)
-                        break;
-                }
+    var totalX = Math.floor(currentPos.y / 76) === 0 ? 0 : viewTileWidth1;
 
-                x += Math.floor(currentPos.x / 88);
-                y += Math.floor(currentPos.y / 76);
-
-                if(!currentClick || currentClick.length === 0 || currentClick[2] !== event.event.button) {
-                    if(worldMapValues[x + y * worldSize.width] !== -1 && worldOwnerValues[x + y * worldSize.width]) {
-                        currentClick = [x, y, event.event.button];
-                        populateTiles();
-                    }
-                    else
-                        currentClick = [];
-                }
-                else if(worldMapValues[x + y * worldSize.width] !== -1) {
-
-                    if(currentClick[0] !== x || currentClick[1] !== y) {
-                        if(currentClick[2] === 0) {
-                            console.log("MOVE TO TILE ", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
-                            socket.emit("move-to-tile", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
-                        }
-                        else if(currentClick[2] === 2) {
-                            console.log("SET RALLY ", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
-                            socket.emit("set-rally", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
-                        }
-                    }
-
-                    currentClick = [];
-                    populateTiles();
-                }
-            });
+    for(y = 0; y < viewTileHeight; y++) {
+        if(tileGroup.children[totalX].children[0] === event.target) {
+            x = 0;
+            break;
         }
 
+        var flag = false;
+
+        for(x = 0; ((y % 2 === 0 && x < viewTileWidth1) || (y % 2 === 1 && x < viewTileWidth2)); x++, totalX++) {
+            if(tileGroup.children[totalX].children[0] === event.target) {
+                flag = true;
+                break;
+            }
+        }
+
+        if(flag)
+            break;
+    }
+
+    x += Math.floor(currentPos.x / 88);
+    y += Math.floor(currentPos.y / 76);
+
+    console.log(x, y);
+
+    if(!currentClick || currentClick.length === 0 || currentClick[2] !== event.event.button) {
+        if(worldMapValues[x + y * worldSize.width] !== -1 && worldOwnerValues[x + y * worldSize.width]) {
+            currentClick = [x, y, event.event.button];
+            populateTiles();
+        }
+        else
+            currentClick = [];
+    }
+    else if(worldMapValues[x + y * worldSize.width] !== -1) {
+
+        if(currentClick[0] !== x || currentClick[1] !== y) {
+            if(currentClick[2] === 0) {
+                console.log("MOVE TO TILE ", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                socket.emit("move-to-tile", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+            }
+            else if(currentClick[2] === 2) {
+                console.log("SET RALLY ", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+                socket.emit("set-rally", { x : currentClick[0], y : currentClick[1], toX : x, toY : y });
+            }
+        }
+
+        currentClick = [];
         populateTiles();
     }
 }
@@ -182,10 +193,21 @@ function populateTiles() {
     var startX = Math.floor(currentPos.x / 88);
     var startY = Math.floor(currentPos.y / 76);
 
+    var currentMode = startY % 2;
+
     var totalX = 0;
 
+
+    for(; totalX < (currentMode === 0 ? 0 : viewTileWidth1); totalX++) {
+        tileGroup.children[totalX].children[0].strokeColor = "white";
+        tileGroup.children[totalX].children[0].fillColor = "white";
+        tileGroup.children[totalX].children[1].content = "";
+    }
+
+    tileGroup.position.y = view.size.height / 2 + (currentMode === 0 ? 76 / 2 : -47);
+
     for(var j = 0; j < viewTileHeight; j++) {
-        for(var i = 0; (j % 2 === 0 && i < viewTileWidth1) || (j % 2 === 1 && i < viewTileWidth2); i++) {
+        for(var i = 0; (j % 2 === currentMode && i < viewTileWidth1) || (j % 2 === 1 - currentMode && i < viewTileWidth2); i++) {
             if(worldMapValues[(startX + i) + (startY + j) * worldSize.width] >= 0) {
                 //Dark Brown 43, 29, 14
                 //Dark Green 61, 186, 59
@@ -193,7 +215,10 @@ function populateTiles() {
                 if(currentClick === undefined || currentClick.length === 0 || currentClick[0] !== startX + i || currentClick[1] !== startY + j)
                     tileGroup.children[totalX].children[0].strokeColor = "black";
                 else {
-                    tileGroup.children[totalX].children[0].strokeColor = "rgb(0,203,255)";
+                    if(currentClick[2] === 0)
+                        tileGroup.children[totalX].children[0].strokeColor = "rgb(0,203,255)";
+                    else if(currentClick[2] === 2)
+                        tileGroup.children[totalX].children[0].strokeColor = "rgb(244,203,66)";
                 }
                 if(worldOwnerValues[(startX + i) + (startY + j) * worldSize.width] !== undefined) {
                     if(worldOwnerValues[(startX + i) + (startY + j) * worldSize.width])
@@ -213,6 +238,12 @@ function populateTiles() {
             }
             totalX++;
         }
+    }
+
+    for(; totalX < tileGroup.children.length; totalX++) {
+        tileGroup.children[totalX].children[0].strokeColor = "white";
+        tileGroup.children[totalX].children[0].fillColor = "white";
+        tileGroup.children[totalX].children[1].content = "";
     }
 }
 
@@ -241,13 +272,13 @@ function onFrame(event) {
         var time = (((countdown) - new Date().getTime()) / 1000);
         if(time > 0) {
             lobbyText.opacity = 1;
-            lobbyText.content = countdownText + Math.ceil(time) + "s";
+            lobbyText.content = countdownText + Math.ceil(time) + "s\nPlayers 1 / 36";
         }
         else {
             countdown = undefined;
             game = true;
             lobbyText.opacity = 0;
-
+            lobbyText.sendToBack();
         }
     }
 }

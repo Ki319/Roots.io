@@ -18,7 +18,7 @@ export default class Queue {
         if(!this.value)
             return true;
 
-        const moveValues = [{ x : this.pos.x + 1, y : this.pos.y - 1 }, { x : this.pos.x - 1, y : this.pos.y }, { x : this.pos.x + 1, y : this.pos.y + 1 },
+        const moveValues = [{ x : this.pos.x + (this.pos.y % 2 === 0 ? -1 : 1), y : this.pos.y - 1 }, { x : this.pos.x - 1, y : this.pos.y }, { x : this.pos.x + (this.pos.y % 2 === 0 ? -1 : 1), y : this.pos.y + 1 },
                             { x : this.pos.x, y : this.pos.y - 1 }, { x : this.pos.x, y : this.pos.y + 1 }, { x : this.pos.x + 1, y : this.pos.y }];
 
         let shortestMoveValue = undefined;
