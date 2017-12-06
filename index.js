@@ -2,7 +2,7 @@ import World from "./server/world";
 
 const express = require("express");
 const app = express();
-const server = require("http").createServer(app).listen(55437);
+const server = require("http").createServer(app).listen(PORT);
 
 const sqlite3 = require("sqlite3").verbose();
 const db = new sqlite3.Database("./roots.db", (err) => {
