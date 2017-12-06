@@ -12,6 +12,8 @@ const db = new sqlite3.Database("./roots.db", (err) => {
     console.log("Connected to the Roots.io database.");
 });
 
+db.run("CREATE TABLE IF NOT EXISTS totalGame(count integer)");
+
 app.get("/", (req, res) => {
     res.sendfile("./client/index.html");
 });

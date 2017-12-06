@@ -2,7 +2,7 @@ import Player from "./player";
 import Tile from "./tile";
 import Queue from "./queue";
 
-const LOBBY_TIME = 60;
+const LOBBY_TIME = 5;
 
 export let worldWidth = 0;
 export let worldHeight = 0;
@@ -166,7 +166,7 @@ export default class World {
 
             socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, foodMap : worldFoodValues, width: worldWidth, height : worldHeight, playerCount : Object.keys(this.players).length });
         }
-        else if(this.lobby) {
+        else if(this.lobby && Object.keys(this.players).length < 36) {
             console.log("Another player joined!");
 
             this.players[socket.id] = new Player(socket);
@@ -247,7 +247,8 @@ export default class World {
     changeOwner(tile, newOwner) {
         this.players[newOwner].add(tile);
 
-        if(this.players[tile.owner].remove(tile)) {
+        if(tile.owner && this.players[tile.owner].remove(tile)) {
+            console.log("Sending lose condition");
             this.players[tile.owner].socket.emit("game-lose", {});
             delete this.players[tile.owner];
 
@@ -255,6 +256,8 @@ export default class World {
                 this.clear();
             }
         }
+
+        tile.setOwner(newOwner);
     }
 
     removePlayer(socket) {
@@ -262,6 +265,12 @@ export default class World {
     }
 
     clear() {
+        this.db.run("INSERT INTO totalGame VALUES (1)", ["C"], function(err) {
+            if(err)
+                return console.log(err.message);
+
+            console.log("ADDED to SERVER");
+        });
         this.tiles = [];
         for(let i = 0; i < 256; i++) {
             const column = {};
