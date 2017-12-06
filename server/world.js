@@ -2,7 +2,7 @@ import Player from "./player";
 import Tile from "./tile";
 import Queue from "./queue";
 
-const LOBBY_TIME = 5;
+const LOBBY_TIME = 60;
 
 export let worldWidth = 0;
 export let worldHeight = 0;
