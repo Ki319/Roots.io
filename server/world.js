@@ -284,8 +284,10 @@ export default class World {
         this.updates = {};
         this.moveQueues = [];
 
-        for(let i = 0; i < this.playerQueue.length; i++) {
-            this.queue(this.playerQueue[i], {});
+        if(this.playerQueue) {
+            for(let i = 0; i < this.playerQueue.length; i++) {
+                this.queue(this.playerQueue[i], {});
+            }
         }
 
         this.playerQueue = [];
