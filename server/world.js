@@ -189,7 +189,7 @@ export default class World {
             const tile = this.tiles[spawnPoints[count][0]][spawnPoints[count][1]];
 
             tile.setOwner(player.socket.id);
-            tile.value = 200;
+            tile.value = 100000;
 
             player.add(tile);
 
