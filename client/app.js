@@ -140,7 +140,7 @@ function tileClick(event) {
     var totalX = Math.floor(currentPos.y / 76) === 0 ? 0 : viewTileWidth1;
 
     for(y = 0; y < viewTileHeight; y++) {
-        if(tileGroup.children[totalX].children[0] === event.target) {
+        if(tileGroup.children[totalX] === event.target) {
             x = 0;
             break;
         }
@@ -148,7 +148,7 @@ function tileClick(event) {
         var flag = false;
 
         for(x = 0; ((y % 2 === 0 && x < viewTileWidth1) || (y % 2 === 1 && x < viewTileWidth2)); x++, totalX++) {
-            if(tileGroup.children[totalX].children[0] === event.target) {
+            if(tileGroup.children[totalX] === event.target) {
                 flag = true;
                 break;
             }

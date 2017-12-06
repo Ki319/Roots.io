@@ -2,7 +2,7 @@ import Player from "./player";
 import Tile from "./tile";
 import Queue from "./queue";
 
-const LOBBY_TIME = 5;
+const LOBBY_TIME = 60;
 
 export let worldWidth = 0;
 export let worldHeight = 0;
@@ -164,7 +164,7 @@ export default class World {
                 this.start();
             }, LOBBY_TIME * 1000);
 
-            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, foodMap : worldFoodValues, width: worldWidth, height : worldHeight });
+            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, foodMap : worldFoodValues, width: worldWidth, height : worldHeight, playerCount : Object.keys(this.players).length });
         }
         else if(this.lobby) {
             console.log("Another player joined!");
@@ -172,7 +172,14 @@ export default class World {
             this.players[socket.id] = new Player(socket);
 
             socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, foodMap : worldFoodValues, width: worldWidth, height : worldHeight });
+
+            this.broadcast("player-count", { playerCount : Object.keys(this.players).length });
         }
+        else {
+            this.playerQueue.push(new Player(socket));
+            socket.emit("queue", {});
+        }
+
     }
 
     start() {
@@ -240,8 +247,14 @@ export default class World {
     changeOwner(tile, newOwner) {
         this.players[newOwner].add(tile);
 
-        if(this.players[tile.owner].remove(tile))
+        if(this.players[tile.owner].remove(tile)) {
             this.players[tile.owner].socket.emit("game-lose", {});
+            delete this.players[tile.owner];
+
+            if(Object.keys(this.players).length === 1) {
+                this.clear();
+            }
+        }
     }
 
     removePlayer(socket) {
@@ -260,6 +273,8 @@ export default class World {
             this.tiles.push(column);
         }
 
+        this.broadcast("clear", {});
+
         this.players = {};
         this.gameActive = false;
         this.lobby = undefined;
@@ -268,6 +283,8 @@ export default class World {
 
         this.updates = {};
         this.moveQueues = [];
+
+        this.playerQueue = [];
 
     }
 };
