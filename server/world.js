@@ -254,7 +254,7 @@ export default class World {
             delete this.players[tile.owner];
 
             if(Object.keys(this.players).length === 1) {
-                this.players[tile.owner].socket.emit("game-lose", {});
+                this.players[newOwner].socket.emit("game-lose", {});
                 this.clear();
             }
         }
