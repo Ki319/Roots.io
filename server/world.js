@@ -184,12 +184,12 @@ export default class World {
 
     start() {
         console.log("Starting game");
-        let count = 0;
+        let count = 2;
         this.broadcast("start-game", (player) => {
             const tile = this.tiles[spawnPoints[count][0]][spawnPoints[count][1]];
 
             tile.setOwner(player.socket.id);
-            tile.value = 99999;
+            tile.value = 200;
 
             player.add(tile);
 
