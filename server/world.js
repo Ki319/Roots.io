@@ -171,7 +171,7 @@ export default class World {
 
             this.players[socket.id] = new Player(socket);
 
-            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, foodMap : worldFoodValues, width: worldWidth, height : worldHeight });
+            socket.emit("lobby-time", { lobby : this.lobby, world : worldMapValues, foodMap : worldFoodValues, width: worldWidth, height : worldHeight, playerCount : Object.keys(this.players).length });
 
             this.broadcast("player-count", { playerCount : Object.keys(this.players).length });
         }

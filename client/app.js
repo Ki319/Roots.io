@@ -1,5 +1,7 @@
 var countdown;
 var countdownText = "Time Until Game : ";
+var queueingText;
+var playerCount = 1;
 var worldMapValues = [];
 var worldFoodValues = [];
 var worldOwnerValues = {};
@@ -41,14 +43,21 @@ socket.on("connect", function() {
     socket.on("lobby-time", function(data) {
         console.log("Lobby time left");
         tileGroup.sendToBack();
+        tileGroup.opacity = 1;
         countdown = new Date(data.lobby).getTime();
         currentClick = [];
         worldOwnerValues = {};
         worldMapValues = data.world;
         worldFoodValues = data.foodMap;
         worldSize = new Size(data.width, data.height);
+        queueingText = undefined;
+        playerCount = data.playerCount;
 
         updateTileGroup();
+    });
+
+    socket.on("player-count", function(data) {
+        playerCount = data.playerCount;
     });
 
     socket.on("start-game", function(data) {
@@ -78,6 +87,25 @@ socket.on("connect", function() {
             }
         }
         populateTiles();
+    });
+
+    socket.on("game-lose", function(data) {
+        console.log("Game lost");
+        tileGroup.sendToBack();
+        tileGroup.opacity = 0;
+        countdown = undefined;
+        currentClick = [];
+        worldOwnerValues = {};
+        worldMapValues = [];
+        worldFoodValues = [];
+        worldSize = undefined;
+        queueingText = undefined;
+        playerCount = 1;
+        socket.emit("queue", {});
+    });
+
+    socket.on("queue", function(data) {
+        queueingText = "Waiting for a Game ... ";
     });
 
     socket.emit("queue", {});
@@ -268,11 +296,17 @@ function onMouseDrag(event) {
 function onFrame(event) {
     view.viewSize = new Size(Math.max(document.documentElement.clientWidth, window.innerWidth || 0), Math.max(document.documentElement.clientHeight, window.innerHeight || 0));
 
-    if(countdown) {
+    if(queueingText) {
+        lobbyText.opacity = 1;
+        lobbyText.content = queueingText;
+        tileGroup.sendToBack();
+    }
+    else if(countdown) {
         var time = (((countdown) - new Date().getTime()) / 1000);
         if(time > 0) {
             lobbyText.opacity = 1;
-            lobbyText.content = countdownText + Math.ceil(time) + "s\nPlayers 1 / 36";
+            lobbyText.content = countdownText + Math.ceil(time) + "s\nPlayers " + playerCount + " / 36";
+            tileGroup.sendToBack();
         }
         else {
             countdown = undefined;
